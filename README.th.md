@@ -1,19 +1,24 @@
 # EasySlip Python SDK
 
-[![CI](https://github.com/EASYSLIP-CO-LTD/sdk-python/actions/workflows/ci.yml/badge.svg)](https://github.com/EASYSLIP-CO-LTD/sdk-python/actions/workflows/ci.yml)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/EASYSLIP-CO-LTD/sdk-python/actions/workflows/ci.yml/badge.svg)](https://github.com/EASYSLIP-CO-LTD/sdk-python/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-SDK สำหรับตรวจสลิปธนาคารและ TrueMoney Wallet ผ่าน EasySlip API พร้อมชนิดข้อมูลสำหรับ Python
+ใช้ Python ตรวจสลิปโอนเงินธนาคารไทยและใบเสร็จ TrueMoney Wallet พร้อมตรวจบัญชีรับเงิน ยอดเงิน และสลิปซ้ำก่อนเติมเงินหรือยืนยันคำสั่งซื้อ
 
 [English](README.md)
 
 ## ความสามารถ
 
-เรียก API ได้ทั้งแบบ sync และ async จัดการบัญชีรับเงิน ส่งงานตรวจเบื้องหลัง และตรวจลายเซ็น webhook รองรับ API v2 และ v1 เดิม ข้อมูลตอบกลับเก็บ field เพิ่มเติมไว้ได้ ส่วนข้อผิดพลาดมี code และ request id เมื่อ API ส่งมา
+- ตรวจสลิปธนาคารจากรูป ข้อความ QR, URL หรือ base64
+- ตรวจว่ารายการโอนเข้าบัญชีที่ผูกไว้และตรงกับยอดที่ต้องชำระ
+- ตรวจสลิปซ้ำก่อนรับชำระเงิน
+- ตรวจใบเสร็จ TrueMoney Wallet
+- ดูโควต้าคงเหลือและจัดการบัญชีรับเงิน
+- ส่งสลิปเป็นชุด ติดตาม job เบื้องหลัง และตรวจลายเซ็น webhook
+- สร้าง QR สำหรับพร้อมเพย์และบิลเพย์เมนต์
 
-## สิ่งที่ต้องมี
+## สิ่งที่ต้องเตรียม
 
-Python 3.11 ถึง 3.15 ที่ยังได้รับการสนับสนุน และ API key จาก [หน้าจัดการนักพัฒนา](https://developer.easyslip.com)
+Python 3.11 ถึง 3.15 สร้างบริการใน [EasySlip developer portal](https://developer.easyslip.com) แล้วนำ API key ของบริการนั้นมาเก็บใน environment ของเซิร์ฟเวอร์ชื่อ `EASYSLIP_API_KEY` หรือใช้ `EASYSLIP_API_KEY_FILE` ชี้ไปยังไฟล์ส่วนตัวที่เก็บ key
 
 ## ติดตั้ง
 
@@ -21,56 +26,266 @@ Python 3.11 ถึง 3.15 ที่ยังได้รับการสน�
 python -m pip install easyslip-sdk
 ```
 
-## เริ่มใช้งาน
+## เริ่มตรวจสลิป
 
-ตั้ง `EASYSLIP_API_KEY` ใน environment หรือใช้ `EASYSLIP_API_KEY_FILE` ชี้ไปยังไฟล์ส่วนตัวที่เก็บ key เตรียม `payload.txt`, `slip.png` และรูปสลิปวอลเล็ทสำหรับคำสั่งที่ต้องการใช้ เปลี่ยน URL ตัวอย่างเป็น URL รูปสลิปที่เข้าถึงได้จากอินเทอร์เน็ต คำสั่งตรวจแต่ละบรรทัดส่งคำขอแยกกันและอาจใช้โควต้า
+บันทึกโปรแกรมด้านล่างเป็น `verify_payment.py` เตรียมสลิปชื่อ `slip.png` และตั้ง API key ให้เรียบร้อย เพิ่มบัญชีรับเงินใน portal แล้วผูกกับบริการ/สาขาที่ใช้ key นี้ เปลี่ยน `150.0` เป็นยอดคำสั่งซื้อจากฐานข้อมูลของคุณเอง อย่าใช้ยอดที่ลูกค้าส่งมา การตรวจแต่ละครั้งอาจใช้โควต้า
 
 ```python
-import base64
+from pathlib import Path
+from easyslip import Client
+from easyslip.errors import SlipNotFoundError, SlipPendingError
+from easyslip.models import MatchedAccount, VerifyOptions
+
+
+def main() -> None:
+    with Client() as client:  # Reads EASYSLIP_API_KEY from the environment.
+        try:
+            result = client.verify.bank_by_image(
+                Path("slip.png"),
+                VerifyOptions(match_account=True, match_amount=150.0, check_duplicate=True),
+            )
+        except SlipPendingError:
+            print("The bank has not made this slip available yet. Check again later.")
+            return
+        except SlipNotFoundError:
+            print("No transfer was found. Ask the customer to check the slip.")
+            return
+        if result.is_duplicate is not False:
+            print("This slip was used before, or duplicate checking was unavailable.")
+            return
+        if result.is_amount_matched is not True:
+            print("The transfer does not match the order amount.")
+            return
+        if not isinstance(result.matched_account, MatchedAccount):
+            print("The transfer did not match a linked receiving account.")
+            return
+        slip = result.raw_slip
+        print("Amount:", result.amount_in_slip)
+        print("Date:", slip.date)
+        print("Sender:", slip.sender.account.name.th)
+        print("Receiver:", slip.receiver.account.name.th)
+        print("Transaction:", slip.trans_ref)
+        print("Payment checks passed. Record this transaction once for the order.")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+รัน `python verify_payment.py` เมื่อตรวจผ่าน ผลลัพธ์จะมีลักษณะดังนี้ (ข้อมูลตัวอย่าง):
+
+    Amount: 150.0
+    Date: 2026-10-29T14:32:00+07:00
+    Sender: ผู้โอนตัวอย่าง
+    Receiver: ร้านตัวอย่าง
+    Transaction: EXAMPLE-TRANSFER-001
+    Payment checks passed. Record this transaction once for the order.
+
+เติมเงินหรือยืนยันคำสั่งซื้อเมื่อผ่านทุกเงื่อนไขแล้วเท่านั้น เก็บเลขอ้างอิงรายการโอนแบบไม่ให้ซ้ำในฐานข้อมูล และอัปเดตคำสั่งซื้อใน transaction เดียวกัน เพื่อกันคำขอที่เข้ามาพร้อมกันเติมเงินซ้ำ SDK ไม่ได้อัปเดตคำสั่งซื้อให้
+
+อ่านต่อ: [เงื่อนไขรับชำระ](#เงื่อนไขรับชำระ), [บัญชีรับเงิน](#บัญชีรับเงิน), [งานเบื้องหลัง](#งานเบื้องหลัง), [จัดการข้อผิดพลาด](#จัดการข้อผิดพลาด)
+
+## วิธีใช้งาน
+
+### ตรวจสลิปธนาคาร
+
+| สิ่งที่มี | เมธอด |
+| --- | --- |
+| ไฟล์รูปหรือ bytes จากการอัปโหลด | `client.verify.bank_by_image` |
+| ข้อความ payload ของ QR | `client.verify.bank_by_payload` |
+| URL รูปที่เข้าถึงได้จากภายนอก | `client.verify.bank_by_url` |
+| รูปแบบ base64 | `client.verify.bank_by_base64` |
+
+payload คือข้อความที่อ่านจาก QR บนสลิป ไม่ใช่เลขอ้างอิงรายการโอน รูปส่งเป็น path, `bytes` หรือ binary file object ได้ ถ้าส่ง string SDK จะอ่านไฟล์ตาม path นั้นบนเซิร์ฟเวอร์ จึงห้ามนำ string จากผู้ใช้มาส่งตรงๆ
+
+```python
+from pathlib import Path
+from easyslip import Client
+
+with Client() as client:
+    result = client.verify.bank_by_payload(Path("payload.txt").read_text().strip())
+    print(result.amount_in_slip, result.raw_slip.trans_ref)
+```
+
+### เงื่อนไขรับชำระ
+
+API v2 ส่งผลการตรวจมากับ response ที่สำเร็จ: `is_duplicate=True`, `is_amount_matched=False` หรือ `matched_account=None` หมายถึงต้องไม่รับชำระรายการนี้ ค่าที่ไม่ตรงไม่ได้ทำให้เกิด API error ตัวอย่างเริ่มต้นจึงตรวจผลเหล่านี้และปฏิเสธเมื่อไม่มีผลตรวจด้วย `matchAccount` ตรวจบัญชีที่ผูกกับบริการ/สาขานี้ `matchAmount` เทียบยอดโอนกับยอดคำสั่งซื้อ และ `checkDuplicate` ตรวจว่าเคยใช้สลิปนี้แล้วหรือไม่
+
+```python
+from easyslip import Client
+from easyslip.models import VerifyOptions
+
+with Client() as client:
+    result = client.verify.bank_by_image(
+        "slip.png", VerifyOptions(match_account=True, match_amount=150.0, check_duplicate=True)
+    )
+    print(result.is_duplicate, result.is_amount_matched, result.matched_account)
+```
+
+### ใบเสร็จ TrueMoney Wallet
+
+ใช้รูปใบเสร็จ Wallet และตรวจผลบัญชี ยอดเงิน และสลิปซ้ำก่อนยืนยันคำสั่งซื้อเช่นเดียวกับสลิปธนาคาร เลขอ้างอิงอยู่ที่ `raw_slip.transaction_id`
+
+```python
+from easyslip import Client
+from easyslip.models import VerifyOptions
+
+with Client() as client:
+    result = client.verify.truewallet_by_image(
+        "wallet-slip.png",
+        VerifyOptions(match_account=True, match_amount=150.0, check_duplicate=True),
+    )
+    print(result.amount_in_slip, result.raw_slip.transaction_id)
+```
+
+### ข้อมูลบริการและโควต้า
+
+ดูโควต้าก่อนวางแผนส่งสลิปเป็นชุด ถ้าโควต้าคงเหลือเป็น null แปลว่า API ไม่ได้ส่งขีดจำกัดเป็นตัวเลข ไม่ใช่โควต้าเป็นศูนย์
+
+```python
+from easyslip import Client
+
+with Client() as client:
+    info = client.get_info()
+    print("Remaining quota:", info.application.quota.remaining)
+```
+
+### บัญชีรับเงิน
+
+ตัวอย่างนี้ไล่อ่านบัญชีที่ผูกไว้ทุกหน้า สร้างบัญชีรับเงิน แก้ชื่อ แล้วผูกกับสาขาที่ใช้ key ตั้ง `RECEIVING_ACCOUNT_NUMBER` เป็นเลขบัญชีของคุณ สร้างครั้งเดียวแล้วเก็บ id ไว้ใช้ต่อ `list()` และ `list_all()` คืนทีละหน้า ส่วน `iterate_all()` อ่านทุกบัญชีของบริการ
+
+```python
+import os
+from easyslip import Client
+from easyslip.models import CreateBankAccountParams, ListBankAccountsParams, UpdateBankAccountParams
+
+with Client() as client:
+    for account in client.bank_accounts.iterate(ListBankAccountsParams(limit=50)):
+        print(account.id, account.name_th)
+    account = client.bank_accounts.create(
+        CreateBankAccountParams(
+            bank_code="004",
+            bank_number=os.environ["RECEIVING_ACCOUNT_NUMBER"],
+            name_th="ร้านตัวอย่าง",
+            name_en="Example Shop",
+            type="BANK",
+        )
+    )
+    updated = client.bank_accounts.update(
+        account.id, UpdateBankAccountParams(name_en="Example Shop")
+    )
+    print("Updated:", updated.id)
+    print("Linked:", client.bank_accounts.link(account.id).linked)
+```
+
+### งานเบื้องหลัง
+
+ส่ง payload ของ QR เป็นชุดและเก็บ job id ของแต่ละรายการ การติดตาม job เดิมไม่ได้ส่งตรวจสลิปใหม่ `wait_for_job` รอได้สิบนาทีโดยค่าเริ่มต้น รวมเวลาส่ง HTTP และรอก่อนลองใหม่ ต้องตรวจสถานะสุดท้ายและผลเงื่อนไขรับชำระก่อนใช้ผล
+
+```python
+from pathlib import Path
+from easyslip import Client
+from easyslip.models import BatchSlip
+
+with Client() as client:
+    payload = Path("payload.txt").read_text().strip()
+    batch = client.jobs.submit_bank_batch([BatchSlip(payload=payload, check_duplicate=True)])
+    for submitted in batch.jobs:
+        job = client.jobs.wait_for_job(submitted.job_id, timeout=600)
+        print(job.job_id, job.status, job.result)
+```
+
+### สร้าง QR รับชำระ
+
+ตั้ง `PROMPTPAY_PHONE` เป็นเบอร์พร้อมเพย์ของคุณ สำหรับบิลเพย์เมนต์ใช้ `type="BILL_PAYMENT"` พร้อม `biller_id` และเลขอ้างอิง ยอดเงินต้องอยู่ในช่วง 0.01 ถึง 9,999,999,999.99 และมีทศนิยมไม่เกินสองตำแหน่ง ถ้าไม่กำหนดยอดให้เว้น amount ไว้ บันทึกรูปที่ API ส่งกลับได้ดังนี้:
+
+```python
+import os
 from pathlib import Path
 from easyslip import Client
 from easyslip.models import QrRequest
 
 with Client() as client:
-    payload = Path("payload.txt").read_text().strip()
-    result = client.verify.bank_by_payload(payload)
-    print(result.meta.request_id if result.meta else None)
-    client.verify.bank_by_image(Path("slip.png"))
-    client.verify.bank_by_url("https://example.com/slip.png")
-    client.verify.bank_by_base64(base64.b64encode(Path("slip.png").read_bytes()).decode())
-    client.verify.truewallet_by_image(Path("wallet-slip.png"))
-    info = client.get_info()
-    qr = client.v1.generate_qr(QrRequest(type="PROMPTPAY", msisdn="0812345678", amount=100))
-    legacy = client.v1.verify_bank_by_payload(payload)
+    qr = client.v1.generate_qr(
+        QrRequest(
+            type="PROMPTPAY",
+            msisdn=os.environ["PROMPTPAY_PHONE"],
+            amount=150.0,
+        )
+    )
+    Path("payment-qr.png").write_bytes(qr.image_bytes())
+    print("Saved payment-qr.png")
 ```
 
-`bank_by_image` รับ path, bytes หรือไฟล์ที่เปิดแบบ binary ถ้าส่ง string SDK จะอ่านเป็น path ในเครื่อง จึงไม่ควรส่ง string จากผู้ใช้โดยตรง `bank_by_payload` ใช้ข้อความ QR ของสลิป ไม่ใช่เลขอ้างอิงรายการ ส่วนคำสั่ง URL ให้ API ดาวน์โหลดรูปจาก URL สาธารณะ `generate_qr` ใช้สร้าง QR รับเงิน ไม่ได้ตรวจสลิป เรียก API v1 เดิมได้ผ่าน `client.v1`
+### API v1 สำหรับระบบเดิม
 
-แอป async ใช้ `AsyncClient` และ await เมธอดชื่อเดียวกัน:
+ระบบใหม่ควรใช้ v2 ระบบเดิมที่ยังเรียก v1 ใช้ผ่าน `client.v1` ได้ โดยคืนข้อมูลสลิปโดยตรง และการตรวจพบสลิปซ้ำจะเป็น `DuplicateSlipError`
+
+```python
+from easyslip import Client
+from easyslip.models import V1VerifyOptions
+
+with Client() as client:
+    slip = client.v1.verify_bank_by_image("slip.png", V1VerifyOptions(check_duplicate=True))
+    print(slip.amount.amount, slip.trans_ref)
+```
+
+### คำขอแบบ async
+
+ใช้ `AsyncClient` ในแอป async แล้ว `await` แต่ละเมธอด ใช้ client เดียวกับหลายคำขอได้ และควรจำกัดจำนวนคำขอพร้อมกันตามโควต้าและทรัพยากรเซิร์ฟเวอร์
 
 ```python
 import asyncio
 from easyslip import AsyncClient
+from easyslip.models import VerifyOptions
 
 
 async def main() -> None:
     async with AsyncClient() as client:
-        await client.get_info()
+        result = await client.verify.bank_by_image(
+            "slip.png", VerifyOptions(match_account=True, match_amount=150.0, check_duplicate=True)
+        )
+        print(result.amount_in_slip, result.is_duplicate, result.is_amount_matched)
 
 
 asyncio.run(main())
 ```
 
+## ข้อมูลผลตรวจ
+
+ผลธนาคารและ Wallet มีฟิลด์ยอดเงินและผลเงื่อนไขรับชำระเหมือนกัน รายละเอียดธนาคารอยู่ใน `raw_slip` ส่วน Wallet ใช้โมเดลใบเสร็จของตัวเอง ฟิลด์ที่ไม่บังคับจะมีเมื่อ API ส่งมาเท่านั้น: `UNSET` คือไม่มีฟิลด์ ส่วน `None` คือ JSON null
+
+| ฟิลด์ | ชนิด | ความหมาย | ตัวอย่าง |
+| --- | --- | --- | --- |
+| `amount_in_slip` | float | ยอดโอนที่ตรวจได้ หน่วยบาท | 150.0 |
+| `is_duplicate` | optional bool | เคยใช้สลิปนี้แล้วหรือไม่ | false |
+| `is_amount_matched` | optional bool | ยอดโอนตรงกับคำสั่งซื้อหรือไม่ | true |
+| `amount_in_order` | optional float | ยอดคำสั่งซื้อที่ส่งไปเทียบ | 150.0 |
+| `matched_account` | optional account or null | บัญชีรับเงินที่ผูกไว้และตรงกับรายการ | account object |
+| `raw_slip.trans_ref` | string | เลขอ้างอิงรายการโอนธนาคาร | EXAMPLE-TRANSFER-001 |
+| `raw_slip.date` | string | วันเวลาโอน รวม offset หาก API ส่งมา | 2026-10-29T14:32:00+07:00 |
+| `raw_slip.sender.account.name.th` | optional string | ชื่อผู้โอนภาษาไทย | ผู้โอนตัวอย่าง |
+| `raw_slip.receiver.account.name.th` | optional string | ชื่อผู้รับภาษาไทย | ร้านตัวอย่าง |
+| `raw_slip.sender.account.bank.account` | optional string | เลขบัญชีผู้โอนตามที่ API ส่งมา อาจปิดบังบางส่วน | xxx-x-x1234-x |
+| `raw_slip.receiver.account.bank.account` | optional string | เลขบัญชีผู้รับตามที่ API ส่งมา อาจปิดบังบางส่วน | xxx-x-x5678-x |
+| `raw_slip.transaction_id` | string (Wallet) | เลขอ้างอิงรายการ Wallet | EXAMPLE-WALLET-001 |
+| `raw_slip.sender.name` | string (Wallet) | ชื่อผู้ส่ง Wallet | ผู้ส่งตัวอย่าง |
+| `raw_slip.receiver.name` | string (Wallet) | ชื่อผู้รับ Wallet | ผู้รับตัวอย่าง |
+| `raw_slip.receiver.phone` | string (Wallet) | เบอร์ผู้รับ Wallet ตามที่ API ส่งมา | 0xx-xxx-1234 |
+
+ดู [โมเดล Python ฉบับเต็ม](https://document.easyslip.com/th/sdk/python)
+
 ## ตั้งค่า
 
-| ตัวเลือก | ค่าเริ่มต้น | การใช้งาน |
-| --- | --- | --- |
-| `api_key` | `EASYSLIP_API_KEY` แล้วจึง `EASYSLIP_API_KEY_FILE` | ใช้ key ที่ส่งโดยตรงก่อนค่า environment |
-| `timeout` | 30 วินาที | เวลารอของคำขอ HTTP แต่ละครั้ง |
-| `max_retries` | 2 | จำนวนครั้งที่ลองเพิ่มตามเงื่อนไขด้านล่าง |
-| `v2_base_url` | `EASYSLIP_V2_BASE_URL` หรือ `https://api.easyslip.com/v2` | เปลี่ยน URL ของ API v2 |
-| `v1_base_url` | `EASYSLIP_V1_BASE_URL` หรือ `https://api.easyslip.com/v1` | เปลี่ยน URL ของ API v1 |
-| `http` | HTTPX client ที่ SDK สร้าง | ส่ง `httpx.Client` หรือ `httpx.AsyncClient` เองได้ และต้องปิดเอง |
+| ตัวเลือก | Environment variable | ค่าเริ่มต้น | หน้าที่ |
+| --- | --- | --- | --- |
+| `api_key` | EASYSLIP_API_KEY; EASYSLIP_API_KEY_FILE | environment/file | key ที่ส่งตรงมีลำดับก่อน environment และใช้ไฟล์เป็นทางเลือกสุดท้าย |
+| `timeout` | none | 30 seconds | เวลาสูงสุดของ HTTP แต่ละครั้ง |
+| `max_retries` | none | 2 | ลองเพิ่มได้ไม่เกินสองครั้งเมื่อเข้าเงื่อนไข retry |
+| `v2_base_url / v1_base_url` | EASYSLIP_V2_BASE_URL; EASYSLIP_V1_BASE_URL | https://api.easyslip.com/v2; https://api.easyslip.com/v1 | กำหนด URL ของ API |
+| `http` | none | new HTTP client | ใช้ HTTP client ที่เตรียมเองและปิดเองเมื่อเสร็จ |
+
+ตัวอย่างปิดทั้ง HTTP client ที่สร้างเองและ SDK client ถ้าใช้ค่าเริ่มต้น `with Client()` จะปิดการเชื่อมต่อให้อัตโนมัติ
 
 ```python
 import httpx
@@ -78,74 +293,121 @@ from easyslip import Client
 
 with httpx.Client(trust_env=False, follow_redirects=False) as http:
     with Client(timeout=15, max_retries=1, http=http) as client:
-        client.get_info()
+        print(client.get_info().application.name)
 ```
-
-ใช้ context manager เพื่อปิดการเชื่อมต่อที่ SDK สร้าง ถ้าส่ง HTTP client เอง ให้ปิดเมื่อใช้งานเสร็จ `jobs.wait_for_job(job_id, timeout=600)` ตรวจสถานะทุกสองวินาทีเป็นค่าเริ่มต้น และนับ timeout รวมทั้งคำขอและเวลารอก่อนลองใหม่
 
 ## จัดการข้อผิดพลาด
 
-ข้อผิดพลาดทั้งหมดของ SDK สืบทอดจาก `EasySlipError` ควรดักชนิดที่เฉพาะเจาะจงก่อนชนิดแม่
+`EasySlipError` เป็น exception หลัก โดย `ApiError` ครอบคลุมข้อผิดพลาด HTTP และ `RequestTimeoutError` เป็นชนิดย่อยของ `NetworkError`
 
-| Error class | HTTP status | เกิดเมื่อ | วิธีจัดการ |
+| คลาส | HTTP status หรือจุดที่เกิด | สาเหตุ | วิธีจัดการ |
 | --- | --- | --- | --- |
-| `AuthenticationError` | 401 | API key ไม่ถูกต้องหรือไม่ได้ส่งมา | ตรวจสอบ key ของแอปพลิเคชัน |
-| `PermissionDeniedError / QuotaExceededError` | 403 | ไม่มีสิทธิ์หรือโควต้าหมด | ตรวจสอบสิทธิ์และโควต้า |
-| `InvalidRequestError / InvalidImageError / InvalidUrlError` | 400 | ข้อมูล รูปภาพ หรือ URL ไม่ผ่านเงื่อนไข | แก้ข้อมูลก่อนส่งใหม่ |
-| `DuplicateSlipError` | 400 (v1) | สลิปเคยถูกตรวจแล้วใน v1 | อ่าน error.slip และอย่าเพิ่มยอดซ้ำ |
-| `NotFoundError / SlipNotFoundError / SlipPendingError` | 404 | ไม่พบข้อมูลหรือธนาคารยังไม่พร้อมให้ตรวจสลิป | ตรวจสอบรหัสหรือรอข้อมูลจากธนาคาร |
-| `ConflictError` | 409 | บัญชีรับเงินซ้ำกับบัญชีที่มีอยู่ | ใช้บัญชีเดิมหรือแก้ข้อมูลบัญชี |
-| `RateLimitError` | 429 | ส่งคำขอถี่เกินไป | รอตาม retry_after ถ้ามี |
-| `ServerError / ServiceUnavailableError` | 5xx | API หรือระบบที่เกี่ยวข้องทำงานไม่สำเร็จ | เก็บ request id ไว้ติดต่อทีมงาน |
-| `InputError` | None | SDK ปฏิเสธข้อมูลก่อนส่งคำขอ | แก้ข้อมูลตาม code ที่ได้รับ |
-| `NetworkError / RequestTimeoutError` | None | เชื่อมต่อไม่ได้หรือหมดเวลารอ | ตรวจสอบการเชื่อมต่อและระวังการส่งคำขอตรวจซ้ำ |
-| `JobWaitTimeoutError` | None | หมดเวลารอผลของงาน | ดู last_job แล้วรอผลต่อเมื่อต้องการ |
-| `BatchSubmitError` | None | ส่งงานบางชุดไม่สำเร็จหลังจากรับชุดก่อนหน้าแล้ว | ดู submitted และ failed_chunk เพื่อไม่ส่งชุดที่รับแล้วซ้ำ |
-| `WebhookSignatureError` | None | ลายเซ็น webhook ไม่ตรงกับ body | ปฏิเสธ webhook และตรวจสอบ signing secret |
+| `EasySlipError` | ขึ้นกับข้อผิดพลาด | คลาสหลักของข้อผิดพลาด SDK | ดักคลาสที่เฉพาะเจาะจงก่อน |
+| `ApiError` | HTTP | คลาสหลักของคำขอที่ API ปฏิเสธ | ดู status, code และ request id |
+| `AuthenticationError` | 401 | API key ไม่ถูกต้อง | ตรวจ key ของบริการนี้ |
+| `PermissionDeniedError` | 403 | บริการ สาขา หรือ IP ไม่มีสิทธิ์เรียก API | ตรวจสิทธิ์บริการและข้อจำกัด IP |
+| `QuotaExceededError` | 403 | โควต้าตรวจสลิปหมด | เพิ่มโควต้าก่อนรับสลิปเพิ่ม |
+| `InvalidRequestError` | 400, 422 | API ไม่รับค่าที่ส่งไป | แก้ข้อมูลก่อนส่งอีกครั้ง |
+| `InvalidImageError` | 400, 413, 415 | รูปอ่านไม่ได้ ใหญ่เกิน หรือไม่รองรับ | ส่งรูปสลิปที่ชัดและเป็นชนิดที่รองรับ |
+| `InvalidUrlError` | 400 | API ไม่รับ URL รูปหรือ callback | ใช้ HTTPS URL ที่เข้าถึงได้จากภายนอก |
+| `DuplicateSlipError` | 400 (v1) | ส่งสลิปที่เคยตรวจแล้วโดยเปิดตรวจสลิปซ้ำ | อย่าเติมเงินซ้ำ ตรวจผลเดิมจาก slip |
+| `NotFoundError` | 404 | ไม่พบข้อมูลหรือข้อมูลอยู่นอกสาขานี้ | ตรวจ id บัญชีหรือ job และสาขา |
+| `SlipNotFoundError` | 404 | ไม่พบรายการโอนหรือ QR สลิป | ขอสลิปที่ชัดจากรายการโอนสำเร็จ |
+| `SlipPendingError` | 404 | ธนาคารยังไม่พร้อมให้ตรวจสลิปที่เพิ่งโอน | รอสักครู่แล้วตรวจใหม่ |
+| `ConflictError` | 409 | มีบัญชีรับเงินนี้แล้ว | ใช้บัญชีเดิมแทนการสร้างซ้ำ |
+| `RateLimitError` | 429 | ส่งคำขอถี่เกินไป | รอตาม retry_after หากมี |
+| `ServerError` | 500, 502, 504 | API หรือธนาคารประมวลผลไม่สำเร็จ | ตรวจผลรายการที่อาจใช้โควต้าแล้วก่อนส่งซ้ำ |
+| `ServiceUnavailableError` | 503 | บริการที่เกี่ยวข้องไม่พร้อม | รอและตรวจสถานะบริการ |
+| `InputError` | ก่อนส่ง | SDK ไม่รับข้อมูลก่อนส่ง | แก้ค่าที่ระบุใน code |
+| `NetworkError` | เครือข่าย | เชื่อมต่อไม่สำเร็จ | ตรวจเครือข่ายและผลรายการก่อนส่งซ้ำ |
+| `RequestTimeoutError` | เครือข่าย | คำขอ HTTP เกินเวลาที่ตั้งไว้ | ตรวจผลการจ่ายก่อนส่งซ้ำ |
+| `JobWaitTimeoutError` | หมดเวลารอ job | รอผล job เกินเวลารวม | เก็บ last_job แล้วติดตาม job เดิมภายหลัง |
+| `BatchSubmitError` | ส่ง batch บางส่วน | บางชุดส่งไม่สำเร็จหลัง API รับชุดก่อนหน้าแล้ว | ส่งต่อเฉพาะชุดที่ยังไม่ได้รับ |
+| `WebhookSignatureError` | ก่อนประมวลผล | ลายเซ็น webhook ไม่ถูกต้องหรือไม่มี | ตอบ 400 และอย่าประมวลผล event |
 
 ```python
 from easyslip import Client
-from easyslip.errors import ApiError, AuthenticationError, RateLimitError, NetworkError
+from easyslip.errors import ApiError, NetworkError, QuotaExceededError, SlipNotFoundError
 
 try:
     with Client() as client:
-        client.get_info()
-except AuthenticationError:
-    print("Check the API key configured for this application.")
-except RateLimitError as error:
-    print("Wait before trying again:", error.retry_after)
+        result = client.verify.bank_by_image("slip.png")
+        print(result.amount_in_slip)
+except SlipNotFoundError:
+    print("Ask the customer for a readable slip from a completed transfer.")
+except QuotaExceededError:
+    print("Add verification quota before processing more payments.")
 except ApiError as error:
-    print(error.status, error.code, error.request_id)
+    print("Verification failed:", error.status, error.code, error.request_id)
 except NetworkError:
-    print("The request could not complete. Check your connection.")
+    print("The outcome is unknown. Reconcile the payment before resubmitting it.")
 ```
 
-คำสั่งที่ส่งซ้ำได้จะลองใหม่เมื่อเชื่อมต่อไม่สำเร็จหรือพบ 5xx บางสถานะ และอาจลองใหม่เมื่อได้ HTTP 429 คำสั่งตรวจสลิปและส่งงานจะไม่ส่งซ้ำหลัง read timeout หรือ 5xx เพราะอาจใช้โควต้าซ้ำ การลองใหม่เพิ่มเวลารอแบบ exponential backoff พร้อม jitter และใช้ `Retry-After` เมื่อไม่เกิน 60 วินาที
+| กรณี | การลองซ้ำอัตโนมัติ (ค่าเริ่มต้น) |
+| --- | --- |
+| เชื่อมต่อไม่ได้ก่อนส่ง | ลองเพิ่มไม่เกิน 2 ครั้ง รวมคำขอตรวจสลิป |
+| HTTP 429 | ลองเพิ่มไม่เกิน 2 ครั้งเมื่อเวลารอไม่เกิน 60 วินาที |
+| การอ่านและผูกบัญชีที่ทำซ้ำได้ | ลองเพิ่มไม่เกิน 2 ครั้งเมื่อเครือข่ายผิดพลาดหรือ HTTP 500, 502, 503, 504 |
+| ตรวจสลิปหรือส่ง job หลังส่งคำขอแล้ว | ไม่ลองซ้ำเมื่อ read timeout หรือ 5xx เพราะส่งใหม่อาจใช้โควต้าซ้ำ |
+| 4xx อื่นๆ | ไม่ลองซ้ำอัตโนมัติ แก้ข้อมูลหรือสิทธิ์ก่อน |
 
-ข้อความผิดพลาด body, header และสาเหตุการเชื่อมต่อจะปิดบัง API key รวมถึงรูปแบบ percent-encoded และ JSON-escaped ส่วน Authorization header จะถูกปิดบังเสมอ `sensitive_raw_body()` คืน body เดิมโดยตั้งใจ จึงไม่ควรส่งลง log ผลตรวจสลิปอาจมีข้อมูลส่วนบุคคล แอปของคุณต้องควบคุมสิทธิ์การเข้าถึงด้วย
+SDK เพิ่มเวลารอก่อนลองซ้ำแบบ exponential backoff พร้อม jitter และใช้ `Retry-After` ไม่เกิน 60 วินาที เครือข่ายที่ขัดข้องไม่ได้ยืนยันว่ารายการที่ใช้โควต้ายังไม่ถูกประมวลผล
 
-## ลายเซ็น webhook
+## Webhook
 
-ตรวจลายเซ็นจาก bytes เดิมก่อนแปลง JSON ห้าม serialize ใหม่ก่อนตรวจ อ่าน header `X-EasySlip-Signature` จากคำขอและเก็บ webhook secret ใน environment
+ติดตั้ง Flask ด้วย `python -m pip install Flask` บันทึกเป็น `webhook_app.py` ตั้ง `EASYSLIP_WEBHOOK_SECRET` แล้วรัน `python webhook_app.py` handler อ่าน body เดิมและ `X-EasySlip-Signature` ตอบ 400 เมื่อลายเซ็นไม่ถูกต้อง และตอบ 204 เมื่อยืนยัน event ได้ ก่อนใช้ยืนยันการจ่ายจริง ให้เปลี่ยนขั้นตอน log เป็นการเก็บลงฐานข้อมูลหรือคิวอย่างถาวร และประมวลผลแต่ละ job id เพียงครั้งเดียว ใช้ HTTPS ผ่าน WSGI server สำหรับ production
 
 ```python
 import os
+from flask import Flask, Response, request
+from easyslip.errors import WebhookSignatureError
 from easyslip.webhooks import construct_event
 
-raw_body = b'{"status":"success"}'
-signature = None  # Replace with the incoming X-EasySlip-Signature header.
-event = construct_event(raw_body, signature, os.environ["EASYSLIP_WEBHOOK_SECRET"])
+app = Flask(__name__)
+webhook_secret = os.environ["EASYSLIP_WEBHOOK_SECRET"]
+
+
+@app.post("/webhooks/easyslip")
+def receive_webhook() -> Response:
+    raw_body = request.get_data(cache=False)
+    try:
+        event = construct_event(
+            raw_body, request.headers.get("X-EasySlip-Signature"), webhook_secret
+        )
+    except (WebhookSignatureError, ValueError):
+        return Response("Invalid webhook", status=400)
+    # Save or enqueue the event durably, using job_id to prevent duplicate processing.
+    app.logger.info("Verified job %s: %s", event.job_id, event.status)
+    return Response(status=204)
+
+
+if __name__ == "__main__":
+    app.run(port=8000)
 ```
 
-ตัวอย่างนี้จะปฏิเสธคำขอที่ไม่มีลายเซ็น ใน HTTP handler ให้คืนข้อผิดพลาดเมื่อเกิด `WebhookSignatureError`
+## ความปลอดภัยและข้อมูลส่วนบุคคล
+
+เก็บ API key ไว้ฝั่งเซิร์ฟเวอร์ ห้ามใส่ใน browser หรือแอปมือถือ ข้อผิดพลาดและ response header ที่ SDK เปิดให้อ่านจะปิดบัง key ที่ตั้งไว้ รวมรูปแบบ percent-encoded และ JSON-escaped และปิดบัง authorization header เสมอ สาเหตุจาก transport เก็บเฉพาะข้อมูลวินิจฉัยที่ล้างข้อมูลลับแล้ว `sensitive_raw_body()` คืน body ข้อผิดพลาดต้นฉบับซึ่งอาจมีข้อมูลลับ จึงไม่ควรนำไป log ผลตรวจมีข้อมูลส่วนบุคคล เช่น ชื่อและเลขบัญชี ควรจำกัดสิทธิ์ ระยะเวลาเก็บ และข้อมูลที่เขียนลง log ของแอป
+
+## เวอร์ชันและระยะเวลารองรับ
+
+SDK ใช้ semantic versioning การเปลี่ยน public API ที่ทำให้โค้ดเดิมใช้ไม่ได้จะเพิ่ม major version รองรับ runtime ที่ยังได้รับการดูแลจากผู้พัฒนา หากเปลี่ยนช่วงเวอร์ชันที่รองรับจะแจ้งใน [changelog](CHANGELOG.md)
 
 ## ตัวอย่างและเอกสาร
 
-[ตัวอย่างที่รันได้](examples/README.md) ครอบคลุมทุกคำสั่ง รวม pagination บัญชีรับเงิน และงานเบื้องหลัง ดูชนิดข้อมูลได้ใน [คู่มือ Python SDK](https://document.easyslip.com/th/sdk/python) และดูเงื่อนไข endpoint ได้ใน [เอกสาร API](https://document.easyslip.com)
+[ตัวอย่างที่รันได้](examples/README.md) แยกโปรแกรมตามแต่ละเมธอด ดูตัวเลือกทั้งหมดได้ที่ [คู่มือ Python SDK](https://document.easyslip.com/th/sdk/python) และ [API reference](https://document.easyslip.com)
 
-## ติดต่อทีมงาน
+## ขอความช่วยเหลือ
 
-แจ้งบั๊ก SDK ผ่าน GitHub issue พร้อม request id และตัวอย่างที่ทำให้เกิดปัญหา เรื่องบัญชีและโควต้าให้ติดต่อผ่าน [หน้าจัดการนักพัฒนา](https://developer.easyslip.com) อย่าใส่ API key หรือสลิปที่ยังมีข้อมูลลูกค้าลงใน issue สาธารณะ อ่านช่องทางแจ้งปัญหาความปลอดภัยแบบส่วนตัวใน [SECURITY.md](SECURITY.md)
+หากพบปัญหา SDK ให้เปิด [GitHub issue](https://github.com/EASYSLIP-CO-LTD/sdk-python/issues) พร้อมตัวอย่างปัญหาและ request id เรื่องบัญชีหรือโควต้าติดต่อ [EasySlip support](https://developer.easyslip.com)
+
+## ร่วมพัฒนา
+
+ดูวิธีเตรียมระบบและรันทดสอบใน [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## แจ้งช่องโหว่
+
+แจ้งเป็นการส่วนตัวตาม [SECURITY.md](SECURITY.md) ห้ามโพสต์ API key หรือสลิปของลูกค้าใน issue สาธารณะ
 
 ## สัญญาอนุญาต
 
