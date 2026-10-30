@@ -16,4 +16,4 @@ python -m twine check dist/*
 
 Add regression tests for behavior changes and update both READMEs when a public option changes. Never include API keys or customer data. Submit changes through a pull request; the checks run on every supported Python version.
 
-Release maintainers merge the automated version pull request, then approve the release environment. Publishing requires the PyPI trusted publisher to be configured for this repository and the publish workflow. No long-lived publishing token is used.
+Release maintainers run CI on the automated version pull request before merging it. `.github/workflows/release.yml` then publishes through the `release` environment in the same run that creates the release. See [the release guide](RELEASING.md) for CI dispatch, approval and existing-tag reruns. No personal access token or GitHub App is required.
