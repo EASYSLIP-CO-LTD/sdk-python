@@ -81,7 +81,7 @@ with httpx.Client(trust_env=False, follow_redirects=False) as http:
         client.get_info()
 ```
 
-ใช้ context manager เพื่อปิดการเชื่อมต่อที่ SDK สร้าง ถ้าส่ง HTTP client เอง ให้ปิดเมื่อใช้งานเสร็จ `jobs.wait_for_job(job_id, timeout=600)` ตรวจสถานะทุกหนึ่งวินาทีเป็นค่าเริ่มต้น และนับ timeout รวมทั้งคำขอและเวลารอก่อนลองใหม่
+ใช้ context manager เพื่อปิดการเชื่อมต่อที่ SDK สร้าง ถ้าส่ง HTTP client เอง ให้ปิดเมื่อใช้งานเสร็จ `jobs.wait_for_job(job_id, timeout=600)` ตรวจสถานะทุกสองวินาทีเป็นค่าเริ่มต้น และนับ timeout รวมทั้งคำขอและเวลารอก่อนลองใหม่
 
 ## จัดการข้อผิดพลาด
 
