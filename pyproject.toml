@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easyslip-sdk"
+version = "1.0.0"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "EasySlip Co., Ltd."}]
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.28.1,<1"]
+
+[project.urls]
+Repository = "https://github.com/EASYSLIP-CO-LTD/sdk-python"
+Homepage = "https://github.com/EASYSLIP-CO-LTD/sdk-python"
+Issues = "https://github.com/EASYSLIP-CO-LTD/sdk-python/issues"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.mypy]
+strict = true
+mypy_path = "src"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.setuptools.package-data]
+easyslip = ["py.typed"]
+
+[tool.coverage.run]
+source = ["easyslip"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
