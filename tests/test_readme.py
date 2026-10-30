@@ -9,7 +9,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def main() -> None:
+def test_readme_programs() -> None:
     count = 0
     with tempfile.TemporaryDirectory(prefix="easyslip-readme-") as directory:
         programs = []
@@ -31,7 +31,3 @@ def main() -> None:
             raise ValueError("No Python README programs found")
         subprocess.run([sys.executable, "-m", "mypy", "--strict", *programs], cwd=ROOT, check=True)
     print(f"README check: {count} blocks checked; {len(programs)} standalone Python programs")
-
-
-if __name__ == "__main__":
-    main()
