@@ -1,19 +1,33 @@
 # Contributing
 
-Open an issue before changing public behavior. Explain the problem, the expected result and the versions you tested. Use synthetic slips and credentials in reproductions.
+Discuss bugs and public API changes in an issue before starting a large change. For vulnerabilities, follow [SECURITY.md](SECURITY.md). Use synthetic data; never include API keys, webhook secrets or real slip images.
+
+## Setup and checks
+
+Clone this repository, enter its directory, then run the commands below. Use a runtime supported by the CI matrix in `.github/workflows/ci.yml`.
 
 ```sh
 python -m venv .venv
 . .venv/bin/activate
-python -m pip install -r requirements-dev.txt -e .
+python -m pip install -r requirements-dev.lock -e .
 ruff check .
 ruff format --check .
 mypy --strict src
+python scripts/check_readme.py
 python -m pytest
 python -m build
 python -m twine check dist/*
 ```
 
-Add regression tests for behavior changes and update both READMEs when a public option changes. Never include API keys or customer data. Submit changes through a pull request; the checks run on every supported Python version.
+These checks run locally without an API key. Live integration tests are optional, use your own credentials and may use quota. Never commit their credentials or slip data.
 
-Release maintainers run CI on the automated version pull request before merging it. `.github/workflows/release.yml` then publishes through the `release` environment in the same run that creates the release. See [the release guide](RELEASING.md) for CI dispatch, approval and existing-tag reruns. No personal access token or GitHub App is required.
+## Pull request checklist
+
+- Keep the change focused and explain the customer-visible behavior.
+- Add regression tests for fixes and tests for new behavior.
+- Update both `README.md` and `README.th.md` when the public API changes.
+- Run the checks above and include their results in the pull request.
+- Check that the diff contains no credentials or customer data.
+- Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commits and the pull request title, such as `fix: preserve request ids`. Use `feat` for a feature, `fix` for a fix and `!` for a breaking change.
+
+Maintainers follow [RELEASING.md](RELEASING.md). Publishing runs in `.github/workflows/release.yml`, environment `release`.
