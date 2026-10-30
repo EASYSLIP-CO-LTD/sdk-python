@@ -168,7 +168,7 @@ with Client() as client:
             bank_number=os.environ["RECEIVING_ACCOUNT_NUMBER"],
             name_th="ร้านตัวอย่าง",
             name_en="Example Shop",
-            type="BANK",
+            type="JURISTIC",
         )
     )
     updated = client.bank_accounts.update(
@@ -197,7 +197,7 @@ with Client() as client:
 
 ### สร้าง QR รับชำระ
 
-ตั้ง `PROMPTPAY_PHONE` เป็นเบอร์พร้อมเพย์ของคุณ สำหรับบิลเพย์เมนต์ใช้ `type="BILL_PAYMENT"` พร้อม `biller_id` และเลขอ้างอิง ยอดเงินต้องอยู่ในช่วง 0.01 ถึง 9,999,999,999.99 และมีทศนิยมไม่เกินสองตำแหน่ง ถ้าไม่กำหนดยอดให้เว้น amount ไว้ บันทึกรูปที่ API ส่งกลับได้ดังนี้:
+ตั้ง `PROMPTPAY_PHONE` เป็นเบอร์พร้อมเพย์ของคุณ สำหรับบิลเพย์เมนต์ใช้ `type="PROMPTPAY"` พร้อม `biller_id` และ `ref1` โดย `ref2` ไม่บังคับ ส่วน `BILL_PAYMENT` ยังใช้ได้สำหรับระบบที่เชื่อมต่อไว้แล้ว ยอดเงินต้องอยู่ในช่วง 0.01 ถึง 9,999,999,999.99 และมีทศนิยมไม่เกินสองตำแหน่ง ถ้าไม่กำหนดยอดให้เว้น amount ไว้ บันทึกรูปที่ API ส่งกลับได้ดังนี้:
 
 ```python
 import os
@@ -215,6 +215,23 @@ with Client() as client:
     )
     Path("payment-qr.png").write_bytes(qr.image_bytes())
     print("Saved payment-qr.png")
+```
+
+```python
+import os
+from easyslip import Client
+from easyslip.models import QrRequest
+
+with Client() as client:
+    qr = client.v1.generate_qr(
+        QrRequest(
+            type="PROMPTPAY",
+            biller_id=os.environ["BILLER_ID"],
+            ref1=os.environ["BILL_REFERENCE"],
+            amount=150.0,
+        )
+    )
+    print(qr.image)
 ```
 
 ### API v1 สำหรับระบบเดิม
@@ -300,6 +317,8 @@ with httpx.Client(trust_env=False, follow_redirects=False) as http:
 
 `EasySlipError` เป็น exception หลัก โดย `ApiError` ครอบคลุมข้อผิดพลาด HTTP และ `RequestTimeoutError` เป็นชนิดย่อยของ `NetworkError`
 
+SDK เลือกคลาสจากรหัสข้อผิดพลาดที่รู้จักก่อน ถ้าไม่รู้จักจึงเลือกตาม HTTP status ส่วน 4xx ที่ไม่ได้ระบุใช้ `ApiError`
+
 | คลาส | HTTP status หรือจุดที่เกิด | สาเหตุ | วิธีจัดการ |
 | --- | --- | --- | --- |
 | `EasySlipError` | ขึ้นกับข้อผิดพลาด | คลาสหลักของข้อผิดพลาด SDK | ดักคลาสที่เฉพาะเจาะจงก่อน |
@@ -307,8 +326,8 @@ with httpx.Client(trust_env=False, follow_redirects=False) as http:
 | `AuthenticationError` | 401 | API key ไม่ถูกต้อง | ตรวจ key ของบริการนี้ |
 | `PermissionDeniedError` | 403 | บริการ สาขา หรือ IP ไม่มีสิทธิ์เรียก API | ตรวจสิทธิ์บริการและข้อจำกัด IP |
 | `QuotaExceededError` | 403 | โควต้าตรวจสลิปหมด | เพิ่มโควต้าก่อนรับสลิปเพิ่ม |
-| `InvalidRequestError` | 400, 422 | API ไม่รับค่าที่ส่งไป | แก้ข้อมูลก่อนส่งอีกครั้ง |
-| `InvalidImageError` | 400, 413, 415 | รูปอ่านไม่ได้ ใหญ่เกิน หรือไม่รองรับ | ส่งรูปสลิปที่ชัดและเป็นชนิดที่รองรับ |
+| `InvalidRequestError` | 400 | API ไม่รับค่าที่ส่งไป | แก้ข้อมูลก่อนส่งอีกครั้ง |
+| `InvalidImageError` | 400 | รูปอ่านไม่ได้ ใหญ่เกิน หรือไม่รองรับ | ส่งรูปสลิปที่ชัดและเป็นชนิดที่รองรับ |
 | `InvalidUrlError` | 400 | API ไม่รับ URL รูปหรือ callback | ใช้ HTTPS URL ที่เข้าถึงได้จากภายนอก |
 | `DuplicateSlipError` | 400 (v1) | ส่งสลิปที่เคยตรวจแล้วโดยเปิดตรวจสลิปซ้ำ | อย่าเติมเงินซ้ำ ตรวจผลเดิมจาก slip |
 | `NotFoundError` | 404 | ไม่พบข้อมูลหรือข้อมูลอยู่นอกสาขานี้ | ตรวจ id บัญชีหรือ job และสาขา |
@@ -316,7 +335,7 @@ with httpx.Client(trust_env=False, follow_redirects=False) as http:
 | `SlipPendingError` | 404 | ธนาคารยังไม่พร้อมให้ตรวจสลิปที่เพิ่งโอน | รอสักครู่แล้วตรวจใหม่ |
 | `ConflictError` | 409 | มีบัญชีรับเงินนี้แล้ว | ใช้บัญชีเดิมแทนการสร้างซ้ำ |
 | `RateLimitError` | 429 | ส่งคำขอถี่เกินไป | รอตาม retry_after หากมี |
-| `ServerError` | 500, 502, 504 | API หรือธนาคารประมวลผลไม่สำเร็จ | ตรวจผลรายการที่อาจใช้โควต้าแล้วก่อนส่งซ้ำ |
+| `ServerError` | 500, 502, 504; 5xx อื่นยกเว้น 503 | API หรือธนาคารประมวลผลไม่สำเร็จ | ตรวจผลรายการที่อาจใช้โควต้าแล้วก่อนส่งซ้ำ |
 | `ServiceUnavailableError` | 503 | บริการที่เกี่ยวข้องไม่พร้อม | รอและตรวจสถานะบริการ |
 | `InputError` | ก่อนส่ง | SDK ไม่รับข้อมูลก่อนส่ง | แก้ค่าที่ระบุใน code |
 | `NetworkError` | เครือข่าย | เชื่อมต่อไม่สำเร็จ | ตรวจเครือข่ายและผลรายการก่อนส่งซ้ำ |
@@ -355,12 +374,12 @@ SDK เพิ่มเวลารอก่อนลองซ้ำแบบ exp
 
 ## Webhook
 
-ติดตั้ง Flask ด้วย `python -m pip install Flask` บันทึกเป็น `webhook_app.py` ตั้ง `EASYSLIP_WEBHOOK_SECRET` แล้วรัน `python webhook_app.py` handler อ่าน body เดิมและ `X-EasySlip-Signature` ตอบ 400 เมื่อลายเซ็นไม่ถูกต้อง และตอบ 204 เมื่อยืนยัน event ได้ ก่อนใช้ยืนยันการจ่ายจริง ให้เปลี่ยนขั้นตอน log เป็นการเก็บลงฐานข้อมูลหรือคิวอย่างถาวร และประมวลผลแต่ละ job id เพียงครั้งเดียว ใช้ HTTPS ผ่าน WSGI server สำหรับ production
+ติดตั้ง Flask ด้วย `python -m pip install Flask` บันทึกเป็น `webhook_app.py` ตั้ง `EASYSLIP_WEBHOOK_SECRET` แล้วรัน `python webhook_app.py` handler อ่าน body เดิมและ `X-EasySlip-Signature` ตอบ 400 เมื่อลายเซ็นหรือข้อมูล event ไม่ถูกต้อง และตอบ 204 เมื่อยืนยัน event ได้ ก่อนใช้ยืนยันการจ่ายจริง ให้เปลี่ยนขั้นตอน log เป็นการเก็บลงฐานข้อมูลหรือคิวอย่างถาวร และประมวลผลแต่ละ job id เพียงครั้งเดียว ใช้ HTTPS ผ่าน WSGI server สำหรับ production
 
 ```python
 import os
 from flask import Flask, Response, request
-from easyslip.errors import WebhookSignatureError
+from easyslip.errors import InputError, WebhookSignatureError
 from easyslip.webhooks import construct_event
 
 app = Flask(__name__)
@@ -374,7 +393,7 @@ def receive_webhook() -> Response:
         event = construct_event(
             raw_body, request.headers.get("X-EasySlip-Signature"), webhook_secret
         )
-    except (WebhookSignatureError, ValueError):
+    except (WebhookSignatureError, InputError):
         return Response("Invalid webhook", status=400)
     # Save or enqueue the event durably, using job_id to prevent duplicate processing.
     app.logger.info("Verified job %s: %s", event.job_id, event.status)

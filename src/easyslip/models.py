@@ -4,8 +4,12 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass, field
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Literal, TypeAlias
 from ._codec import UNSET, UnsetType, encode
+
+
+AccountType: TypeAlias = Literal["NATURAL", "JURISTIC"]
+QrType: TypeAlias = Literal["PROMPTPAY", "BILL_PAYMENT", "KSHOP", "MAE_MANEE", "TUNGNGERN"]
 
 
 @dataclass(kw_only=True)
@@ -475,7 +479,7 @@ class CreateBankAccountParams(Model):
     bank_number: str = field(metadata={"wire": "bankNumber"})
     name_th: str = field(metadata={"wire": "nameTh"})
     name_en: str = field(metadata={"wire": "nameEn"})
-    type: str = field(metadata={"wire": "type"})
+    type: AccountType = field(metadata={"wire": "type"})
     extra_verify: str | UnsetType = field(metadata={"wire": "extraVerify"}, default=UNSET)
     match_mode: str | UnsetType = field(metadata={"wire": "matchMode"}, default=UNSET)
 
@@ -488,7 +492,7 @@ class UpdateBankAccountParams(Model):
     bank_number: str | UnsetType = field(metadata={"wire": "bankNumber"}, default=UNSET)
     name_th: str | UnsetType = field(metadata={"wire": "nameTh"}, default=UNSET)
     name_en: str | UnsetType = field(metadata={"wire": "nameEn"}, default=UNSET)
-    type: str | UnsetType = field(metadata={"wire": "type"}, default=UNSET)
+    type: AccountType | UnsetType = field(metadata={"wire": "type"}, default=UNSET)
     extra_verify: str | None | UnsetType = field(metadata={"wire": "extraVerify"}, default=UNSET)
     match_mode: str | UnsetType = field(metadata={"wire": "matchMode"}, default=UNSET)
 
@@ -533,7 +537,7 @@ class V1VerifyOptions(Model):
 class ListBankAccountsParams(Model):
     """ListBankAccountsParams wire fields. Unknown enum strings are preserved."""
 
-    type: str | UnsetType = field(metadata={"wire": "type"}, default=UNSET)
+    type: AccountType | UnsetType = field(metadata={"wire": "type"}, default=UNSET)
     bank_code: str | UnsetType = field(metadata={"wire": "bankCode"}, default=UNSET)
     page: int | UnsetType = field(metadata={"wire": "page"}, default=UNSET)
     limit: int | UnsetType = field(metadata={"wire": "limit"}, default=UNSET)
@@ -549,7 +553,7 @@ class QrRequest(Model):
     are sent as given.
     """
 
-    type: str = field(metadata={"wire": "type"})
+    type: QrType = field(metadata={"wire": "type"})
     msisdn: str | UnsetType = field(metadata={"wire": "msisdn"}, default=UNSET)
     nat_id: str | UnsetType = field(metadata={"wire": "natId"}, default=UNSET)
     e_wallet_id: str | UnsetType = field(metadata={"wire": "eWalletId"}, default=UNSET)

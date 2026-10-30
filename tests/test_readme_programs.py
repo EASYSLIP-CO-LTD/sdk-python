@@ -93,3 +93,19 @@ def test_webhook_handler_authenticates_original_body(locale, monkeypatch):
 
 def test_locale_programs_are_identical():
     assert programs("README.md") == programs("README.th.md")
+
+
+@pytest.mark.parametrize("locale", ["README.md", "README.th.md"])
+@pytest.mark.parametrize("body", [b"not JSON", b"{}"])
+def test_webhook_handler_rejects_signed_invalid_event(locale, body, monkeypatch):
+    secret = "example-webhook-secret"
+    monkeypatch.setenv("EASYSLIP_WEBHOOK_SECRET", secret)
+    namespace = {"__name__": "readme_webhook"}
+    exec(compile(programs(locale)[-1], locale, "exec"), namespace)
+    signature = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    response = (
+        namespace["app"]
+        .test_client()
+        .post("/webhooks/easyslip", data=body, headers={"X-EasySlip-Signature": signature})
+    )
+    assert response.status_code == 400

@@ -2,16 +2,20 @@
 
 import json
 from .webhook import verify_signature as verify_signature
-from ._codec import decode
+from ._codec import DecodeError, decode
 from .models import WebhookEvent
-from .errors import WebhookSignatureError
+from .errors import InputError, WebhookSignatureError
 
 SIGNATURE_HEADER: str = "X-EasySlip-Signature"
 
 
 def parse_event(raw_body: bytes | str) -> WebhookEvent:
     """Parse the original UTF-8 body without verifying its signature."""
-    return decode(WebhookEvent, json.loads(raw_body))
+    try:
+        return decode(WebhookEvent, json.loads(raw_body))
+    except (json.JSONDecodeError, UnicodeDecodeError, DecodeError):
+        pass
+    raise InputError("INVALID_ARGUMENT", "Webhook body must be a valid event JSON object")
 
 
 def construct_event(raw_body: bytes | str, signature: str | None, secret: str) -> WebhookEvent:

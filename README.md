@@ -168,7 +168,7 @@ with Client() as client:
             bank_number=os.environ["RECEIVING_ACCOUNT_NUMBER"],
             name_th="ร้านตัวอย่าง",
             name_en="Example Shop",
-            type="BANK",
+            type="JURISTIC",
         )
     )
     updated = client.bank_accounts.update(
@@ -197,7 +197,7 @@ with Client() as client:
 
 ### Generate a payment QR
 
-Set `PROMPTPAY_PHONE` to your PromptPay phone number. For bill payment, use `type="BILL_PAYMENT"` with `biller_id` and your references. Amounts must be from 0.01 to 9,999,999,999.99 with at most two decimal places; omit the amount for an open-amount QR. Save the image returned by the API:
+Set `PROMPTPAY_PHONE` to your PromptPay phone number. For bill payment, use `type="PROMPTPAY"` with `biller_id` and `ref1`; `ref2` is optional. The older `BILL_PAYMENT` type still works for existing integrations. Amounts must be from 0.01 to 9,999,999,999.99 with at most two decimal places; omit the amount for an open-amount QR. Save the image returned by the API:
 
 ```python
 import os
@@ -215,6 +215,23 @@ with Client() as client:
     )
     Path("payment-qr.png").write_bytes(qr.image_bytes())
     print("Saved payment-qr.png")
+```
+
+```python
+import os
+from easyslip import Client
+from easyslip.models import QrRequest
+
+with Client() as client:
+    qr = client.v1.generate_qr(
+        QrRequest(
+            type="PROMPTPAY",
+            biller_id=os.environ["BILLER_ID"],
+            ref1=os.environ["BILL_REFERENCE"],
+            amount=150.0,
+        )
+    )
+    print(qr.image)
 ```
 
 ### Legacy API v1
@@ -300,6 +317,8 @@ with httpx.Client(trust_env=False, follow_redirects=False) as http:
 
 `EasySlipError` is the root exception; `ApiError` covers HTTP failures and `RequestTimeoutError` is a `NetworkError`.
 
+A recognized API error code selects the error class first; otherwise the SDK uses the HTTP status. Unmapped 4xx responses use `ApiError`.
+
 | Error class | HTTP status or stage | When it happens | What to do |
 | --- | --- | --- | --- |
 | `EasySlipError` | varies | Base for all SDK failures. | Catch a specific error first. |
@@ -307,8 +326,8 @@ with httpx.Client(trust_env=False, follow_redirects=False) as http:
 | `AuthenticationError` | 401 | API key is invalid. | Check the key for this service. |
 | `PermissionDeniedError` | 403 | Service, branch or IP cannot call the API. | Check service access and IP restrictions. |
 | `QuotaExceededError` | 403 | Verification quota is exhausted. | Add quota before accepting more slips. |
-| `InvalidRequestError` | 400, 422 | The API rejects an argument. | Correct the request before sending again. |
-| `InvalidImageError` | 400, 413, 415 | Image is unreadable, oversized or unsupported. | Send a readable supported image. |
+| `InvalidRequestError` | 400 | The API rejects an argument. | Correct the request before sending again. |
+| `InvalidImageError` | 400 | Image is unreadable, oversized or unsupported. | Send a readable supported image. |
 | `InvalidUrlError` | 400 | Image or callback URL is refused. | Use a reachable public HTTPS URL. |
 | `DuplicateSlipError` | 400 (v1) | A previously verified slip is submitted with duplicate checking. | Do not credit the same transfer again; inspect slip. |
 | `NotFoundError` | 404 | Resource is missing or outside this branch. | Check the account or job id and branch. |
@@ -316,7 +335,7 @@ with httpx.Client(trust_env=False, follow_redirects=False) as http:
 | `SlipPendingError` | 404 | A recent slip is not available from the bank yet. | Wait before checking again. |
 | `ConflictError` | 409 | Receiving account already exists. | Reuse it instead of creating another. |
 | `RateLimitError` | 429 | Request rate is too high. | Wait for retry_after when present. |
-| `ServerError` | 500, 502, 504 | The API or bank could not finish the request. | Reconcile billed calls before resending. |
+| `ServerError` | 500, 502, 504; other 5xx except 503 | The API or bank could not finish the request. | Reconcile billed calls before resending. |
 | `ServiceUnavailableError` | 503 | A dependency is unavailable. | Wait and check service status. |
 | `InputError` | before sending | Local validation rejects input. | Fix the argument identified by code. |
 | `NetworkError` | network | Connection fails. | Check connectivity and reconcile the outcome. |
@@ -355,12 +374,12 @@ Retries use exponential backoff with jitter and respect `Retry-After` up to 60 s
 
 ## Webhooks
 
-Install Flask with `python -m pip install Flask`, save this as `webhook_app.py`, set `EASYSLIP_WEBHOOK_SECRET`, then run `python webhook_app.py`. The handler reads the original body and `X-EasySlip-Signature`, returns 400 for an invalid signature, and acknowledges a verified event with 204. Replace the logging step with durable storage or a queue before using it to confirm payments; process each job id once. Deploy behind HTTPS with a production WSGI server.
+Install Flask with `python -m pip install Flask`, save this as `webhook_app.py`, set `EASYSLIP_WEBHOOK_SECRET`, then run `python webhook_app.py`. The handler reads the original body and `X-EasySlip-Signature`, returns 400 for an invalid signature or malformed event, and acknowledges a verified event with 204. Replace the logging step with durable storage or a queue before using it to confirm payments; process each job id once. Deploy behind HTTPS with a production WSGI server.
 
 ```python
 import os
 from flask import Flask, Response, request
-from easyslip.errors import WebhookSignatureError
+from easyslip.errors import InputError, WebhookSignatureError
 from easyslip.webhooks import construct_event
 
 app = Flask(__name__)
@@ -374,7 +393,7 @@ def receive_webhook() -> Response:
         event = construct_event(
             raw_body, request.headers.get("X-EasySlip-Signature"), webhook_secret
         )
-    except (WebhookSignatureError, ValueError):
+    except (WebhookSignatureError, InputError):
         return Response("Invalid webhook", status=400)
     # Save or enqueue the event durably, using job_id to prevent duplicate processing.
     app.logger.info("Verified job %s: %s", event.job_id, event.status)
