@@ -44,7 +44,7 @@ def _settings(api_key: str | None, v2: str | None, v1: str | None) -> tuple[str,
         key,
         v2 or os.environ.get("EASYSLIP_V2_BASE_URL") or "https://api.easyslip.com/v2",
         v1 or os.environ.get("EASYSLIP_V1_BASE_URL") or "https://api.easyslip.com/v1",
-        "easyslip-python/1.0.0",  # x-release-please-version
+        "easyslip-python/1.0.1",  # x-release-please-version
     )
 
 
