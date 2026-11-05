@@ -194,7 +194,10 @@ def test_webhook_matches_openssl_utf8_signature():
 def test_custom_headers_cannot_replace_credentials_or_user_agent():
     def handle(request):
         assert request.headers["authorization"] == f"Bearer {KEY}"
-        assert request.headers["user-agent"].startswith("sdk/1.0.0 python/")
+        assert (
+            request.headers["user-agent"].startswith("sdk/")
+            and " python/" in request.headers["user-agent"]
+        )
         assert request.headers["x-trace"] == "fixture"
         return httpx.Response(200, json={})
 

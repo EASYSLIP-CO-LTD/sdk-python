@@ -8,6 +8,8 @@
       "include-v-in-tag": true,
       "include-component-in-tag": false,
       "extra-files": [
+        "src/easyslip/__init__.py",
+        "src/easyslip/_transport.py",
         "src/easyslip/client.py"
       ]
     }

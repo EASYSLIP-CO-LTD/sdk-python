@@ -18,7 +18,7 @@ def test_defaults_and_environment(monkeypatch, tmp_path):
     with Client() as client:
         assert client._v1._base == "https://api.easyslip.com/v1"
         assert client._v2._base == "https://api.easyslip.com/v2"
-        assert client._v2._agent.startswith("easyslip-python/1.0.0 python/")
+        assert client._v2._agent.startswith("easyslip-python/") and " python/" in client._v2._agent
         assert "fixture-key" not in repr(client)
     assert EasySlip is Client
     assert SIGNATURE_HEADER == "X-EasySlip-Signature"
