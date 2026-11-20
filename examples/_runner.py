@@ -54,6 +54,7 @@ OPERATIONS = {
     "verify.bankByImage": "client.verify.bank_by_image(image)",
     "verify.bankByBase64": "client.verify.bank_by_base64(encoded)",
     "verify.bankByUrl": "client.verify.bank_by_url(image_url)",
+    "verify.truewalletByPayload": "client.verify.truewallet_by_payload(payload)",
     "verify.truewalletByImage": "client.verify.truewallet_by_image(image)",
     "verify.truewalletByBase64": "client.verify.truewallet_by_base64(encoded)",
     "verify.truewalletByUrl": "client.verify.truewallet_by_url(image_url)",
@@ -77,6 +78,7 @@ OPERATIONS = {
     "v1.verifyBankByImage": "client.v1.verify_bank_by_image(image)",
     "v1.verifyBankByBase64": "client.v1.verify_bank_by_base64(encoded)",
     "v1.verifyBankByUrl": "client.v1.verify_bank_by_url(image_url)",
+    "v1.verifyTruemoneyByPayload": "client.v1.verify_truemoney_by_payload(payload)",
     "v1.verifyTruemoneyByImage": "client.v1.verify_truemoney_by_image(image)",
     "v1.generateQr": 'client.v1.generate_qr(QrRequest(type="PROMPTPAY",msisdn="0812345678",amount=100))',
 }

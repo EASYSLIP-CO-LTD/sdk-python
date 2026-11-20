@@ -259,28 +259,29 @@ class MatchedBank(Model):
 
 @dataclass(kw_only=True)
 class TrueWalletSlip(Model):
-    """TrueWalletSlip wire fields. Unknown enum strings are preserved."""
+    """A wallet slip. `sender` and `receiver` are UNSET when the API sent no phone for that side."""
 
     transaction_id: str = field(metadata={"wire": "transactionId"})
     date: str = field(metadata={"wire": "date"})
     amount: float = field(metadata={"wire": "amount"})
-    sender: TrueWalletSender = field(metadata={"wire": "sender"})
-    receiver: TrueWalletReceiver = field(metadata={"wire": "receiver"})
+    sender: TrueWalletSender | UnsetType = field(metadata={"wire": "sender"}, default=UNSET)
+    receiver: TrueWalletReceiver | UnsetType = field(metadata={"wire": "receiver"}, default=UNSET)
 
 
 @dataclass(kw_only=True)
 class TrueWalletSender(Model):
-    """TrueWalletSender wire fields. Unknown enum strings are preserved."""
+    """One side of a wallet slip. `name` is deprecated: newer results carry only `phone`."""
 
-    name: str = field(metadata={"wire": "name"})
+    name: str | UnsetType = field(metadata={"wire": "name"}, default=UNSET)
+    phone: str | UnsetType = field(metadata={"wire": "phone"}, default=UNSET)
 
 
 @dataclass(kw_only=True)
 class TrueWalletReceiver(Model):
-    """TrueWalletReceiver wire fields. Unknown enum strings are preserved."""
+    """One side of a wallet slip. `name` is deprecated: newer results carry only `phone`."""
 
-    name: str = field(metadata={"wire": "name"})
-    phone: str = field(metadata={"wire": "phone"})
+    name: str | UnsetType = field(metadata={"wire": "name"}, default=UNSET)
+    phone: str | UnsetType = field(metadata={"wire": "phone"}, default=UNSET)
 
 
 @dataclass(kw_only=True)

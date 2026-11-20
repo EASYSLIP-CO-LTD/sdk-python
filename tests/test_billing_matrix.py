@@ -19,7 +19,7 @@ for _, case in CASES:
 
 CALLS["jobs.submitBankBatch"]["slips"] = [{"payload": "synthetic"}]
 CALLS["jobs.submitBankMany"] = CALLS["jobs.submitBankBatch"]
-assert len(CALLS) == 15
+assert len(CALLS) == 17
 
 
 @pytest.mark.parametrize("operation", sorted(CALLS))
