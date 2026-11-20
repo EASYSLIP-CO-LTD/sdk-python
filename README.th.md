@@ -290,7 +290,7 @@ asyncio.run(main())
 | `raw_slip.receiver.phone` | string (Wallet) | เบอร์ผู้รับ Wallet ปิดบางหลักไว้ | 08-xxx-9876 |
 | `raw_slip.sender.name`, `raw_slip.receiver.name` | string (Wallet) | ชื่อ เลิกใช้แล้ว ผลใหม่ไม่มี มีเฉพาะผลรุ่นเก่า | ผู้รับตัวอย่าง |
 
-ผล Wallet ไม่มีชื่อ ถ้าไม่ได้เบอร์ฝั่งไหนมา `raw_slip.sender` หรือ `raw_slip.receiver` ฝั่งนั้นจะเป็น `UNSET` จึงควรเช็กก่อนอ่าน
+ผล Wallet ใหม่ไม่มีชื่อ ถ้าไม่ได้เบอร์ฝั่งไหนมา `raw_slip.sender` หรือ `raw_slip.receiver` ฝั่งนั้นจะเป็น `UNSET` จึงควรเช็กก่อนอ่าน
 
 ดู [โมเดล Python ฉบับเต็ม](https://document.easyslip.com/th/sdk/python)
 

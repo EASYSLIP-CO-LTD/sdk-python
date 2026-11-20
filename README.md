@@ -290,7 +290,7 @@ The bank and Wallet result share amount and payment-check fields. Bank details a
 | `raw_slip.receiver.phone` | string (Wallet) | Wallet receiver phone, partly hidden | 08-xxx-9876 |
 | `raw_slip.sender.name`, `raw_slip.receiver.name` | string (Wallet) | Name. Deprecated: new results do not have it, only older ones do | ผู้รับตัวอย่าง |
 
-A Wallet result has no names. `raw_slip.sender` and `raw_slip.receiver` are `UNSET` when no phone came back for that side, so check before you read them.
+New Wallet results have no names. `raw_slip.sender` and `raw_slip.receiver` are `UNSET` when no phone came back for that side, so check before you read them.
 
 See the [full Python model reference](https://document.easyslip.com/en/sdk/python).
 
