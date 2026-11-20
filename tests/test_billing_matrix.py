@@ -1,6 +1,7 @@
 """Every billed operation sends once after a read timeout or HTTP 500."""
 
 import asyncio
+import copy
 import httpx
 import pytest
 from easyslip import Client, AsyncClient
@@ -9,13 +10,19 @@ from easyslip.errors import ApiError, NetworkError, BatchSubmitError
 from test_conformance import CASES, invoke
 
 CALLS = {}
-for _, case in CASES:
-    call = case.get("call", {})
-    op = case.get("operation", "")
-    if call and (
-        op.startswith("verify.") or op.startswith("v1.verify") or op.startswith("jobs.submit")
-    ):
-        CALLS.setdefault(op, call["args"])
+# Take one canonical call per operation: the plain success or accepted fixture
+# when there is one, so the choice never depends on the order fixtures load in.
+for preferred in (True, False):
+    for name, case in CASES:
+        call = case.get("call", {})
+        op = case.get("operation", "")
+        stem = name.rsplit("/", 1)[-1].removesuffix(".json")
+        if preferred and stem not in ("success", "accepted"):
+            continue
+        if call and (
+            op.startswith("verify.") or op.startswith("v1.verify") or op.startswith("jobs.submit")
+        ):
+            CALLS.setdefault(op, copy.deepcopy(call["args"]))
 
 CALLS["jobs.submitBankBatch"]["slips"] = [{"payload": "synthetic"}]
 CALLS["jobs.submitBankMany"] = CALLS["jobs.submitBankBatch"]
