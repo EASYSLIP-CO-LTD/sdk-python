@@ -124,7 +124,7 @@ with Client() as client:
 
 ### ใบเสร็จ TrueMoney Wallet
 
-ใช้รูปใบเสร็จ Wallet และตรวจผลบัญชี ยอดเงิน และสลิปซ้ำก่อนยืนยันคำสั่งซื้อเช่นเดียวกับสลิปธนาคาร เลขอ้างอิงอยู่ที่ `raw_slip.transaction_id`
+ใช้รูปใบเสร็จ Wallet หรือข้อความใน QR ของรายการโอนด้วย `client.verify.truewallet_by_payload(payload)` (v1: `client.v1.verify_truemoney_by_payload`) และตรวจผลบัญชี ยอดเงิน และสลิปซ้ำก่อนยืนยันคำสั่งซื้อเช่นเดียวกับสลิปธนาคาร เลขอ้างอิงอยู่ที่ `raw_slip.transaction_id`
 
 ```python
 from easyslip import Client
@@ -286,9 +286,11 @@ asyncio.run(main())
 | `raw_slip.sender.account.bank.account` | optional string | เลขบัญชีผู้โอนตามที่ API ส่งมา อาจปิดบังบางส่วน | xxx-x-x1234-x |
 | `raw_slip.receiver.account.bank.account` | optional string | เลขบัญชีผู้รับตามที่ API ส่งมา อาจปิดบังบางส่วน | xxx-x-x5678-x |
 | `raw_slip.transaction_id` | string (Wallet) | เลขอ้างอิงรายการ Wallet | EXAMPLE-WALLET-001 |
-| `raw_slip.sender.name` | string (Wallet) | ชื่อผู้ส่ง Wallet | ผู้ส่งตัวอย่าง |
-| `raw_slip.receiver.name` | string (Wallet) | ชื่อผู้รับ Wallet | ผู้รับตัวอย่าง |
-| `raw_slip.receiver.phone` | string (Wallet) | เบอร์ผู้รับ Wallet ตามที่ API ส่งมา | 0xx-xxx-1234 |
+| `raw_slip.sender.phone` | string (Wallet) | เบอร์ผู้ส่ง Wallet ปิดบางหลักไว้ | 08-xxx-2345 |
+| `raw_slip.receiver.phone` | string (Wallet) | เบอร์ผู้รับ Wallet ปิดบางหลักไว้ | 08-xxx-9876 |
+| `raw_slip.sender.name`, `raw_slip.receiver.name` | string (Wallet) | ชื่อ เลิกใช้แล้ว ผลใหม่ไม่มี มีเฉพาะผลรุ่นเก่า | ผู้รับตัวอย่าง |
+
+ผล Wallet ใหม่ไม่มีชื่อ ถ้าไม่ได้เบอร์ฝั่งไหนมา `raw_slip.sender` หรือ `raw_slip.receiver` ฝั่งนั้นจะเป็น `UNSET` จึงควรเช็กก่อนอ่าน
 
 ดู [โมเดล Python ฉบับเต็ม](https://document.easyslip.com/th/sdk/python)
 

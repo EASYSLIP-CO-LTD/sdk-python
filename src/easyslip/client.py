@@ -151,6 +151,13 @@ class Verify(Resource):
         _text(url, 2048)
         return cast(m.BankSlipResult, self._verify("url", url, options, False))
 
+    def truewallet_by_payload(
+        self, payload: str, options: m.VerifyOptions | None = None
+    ) -> m.TrueWalletResult:
+        """Verify one wallet transfer from the text of its QR code; may spend quota."""
+        _text(payload, 256)
+        return cast(m.TrueWalletResult, self._verify("payload", payload, options, True))
+
     def truewallet_by_image(
         self, file: FileInput, options: m.VerifyOptions | None = None
     ) -> m.TrueWalletResult:
@@ -410,6 +417,12 @@ class V1(Resource):
         """Verify a remote image through v1."""
         return cast(m.BankSlip, self._verify("url", _text(url, 2048), options))
 
+    def verify_truemoney_by_payload(
+        self, payload: str, options: m.V1VerifyOptions | None = None
+    ) -> m.TrueWalletSlip:
+        """Verify a wallet transfer from the text of its QR code."""
+        return cast(m.TrueWalletSlip, self._verify("payload", _text(payload, 256), options, True))
+
     def verify_truemoney_by_image(
         self, file: FileInput, options: m.V1VerifyOptions | None = None
     ) -> m.TrueWalletSlip:
@@ -532,6 +545,13 @@ class AsyncVerify(AsyncResource):
         """Verify one bank slip using url; may spend quota."""
         _text(url, 2048)
         return cast(m.BankSlipResult, await self._verify("url", url, options, False))
+
+    async def truewallet_by_payload(
+        self, payload: str, options: m.VerifyOptions | None = None
+    ) -> m.TrueWalletResult:
+        """Verify one wallet transfer from the text of its QR code; may spend quota."""
+        _text(payload, 256)
+        return cast(m.TrueWalletResult, await self._verify("payload", payload, options, True))
 
     async def truewallet_by_image(
         self, file: FileInput, options: m.VerifyOptions | None = None
@@ -802,6 +822,14 @@ class AsyncV1(AsyncResource):
     ) -> m.BankSlip:
         """Verify a remote image through v1."""
         return cast(m.BankSlip, await self._verify("url", _text(url, 2048), options))
+
+    async def verify_truemoney_by_payload(
+        self, payload: str, options: m.V1VerifyOptions | None = None
+    ) -> m.TrueWalletSlip:
+        """Verify a wallet transfer from the text of its QR code."""
+        return cast(
+            m.TrueWalletSlip, await self._verify("payload", _text(payload, 256), options, True)
+        )
 
     async def verify_truemoney_by_image(
         self, file: FileInput, options: m.V1VerifyOptions | None = None

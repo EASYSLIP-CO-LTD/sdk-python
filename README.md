@@ -124,7 +124,7 @@ with Client() as client:
 
 ### TrueMoney Wallet
 
-Use a Wallet receipt image. Check the same payment flags before crediting the order; the receipt reference is `raw_slip.transaction_id`.
+Use a Wallet receipt image, or the text of the transfer QR code with `client.verify.truewallet_by_payload(payload)` (v1: `client.v1.verify_truemoney_by_payload`). Check the same payment flags before crediting the order; the receipt reference is `raw_slip.transaction_id`.
 
 ```python
 from easyslip import Client
@@ -286,9 +286,11 @@ The bank and Wallet result share amount and payment-check fields. Bank details a
 | `raw_slip.sender.account.bank.account` | optional string | Sender account number as returned, possibly masked | xxx-x-x1234-x |
 | `raw_slip.receiver.account.bank.account` | optional string | Receiver account number as returned, possibly masked | xxx-x-x5678-x |
 | `raw_slip.transaction_id` | string (Wallet) | Wallet transaction reference | EXAMPLE-WALLET-001 |
-| `raw_slip.sender.name` | string (Wallet) | Wallet sender name | ผู้ส่งตัวอย่าง |
-| `raw_slip.receiver.name` | string (Wallet) | Wallet receiver name | ผู้รับตัวอย่าง |
-| `raw_slip.receiver.phone` | string (Wallet) | Wallet receiver phone as returned | 0xx-xxx-1234 |
+| `raw_slip.sender.phone` | string (Wallet) | Wallet sender phone, partly hidden | 08-xxx-2345 |
+| `raw_slip.receiver.phone` | string (Wallet) | Wallet receiver phone, partly hidden | 08-xxx-9876 |
+| `raw_slip.sender.name`, `raw_slip.receiver.name` | string (Wallet) | Name. Deprecated: new results do not have it, only older ones do | ผู้รับตัวอย่าง |
+
+New Wallet results have no names. `raw_slip.sender` and `raw_slip.receiver` are `UNSET` when no phone came back for that side, so check before you read them.
 
 See the [full Python model reference](https://document.easyslip.com/en/sdk/python).
 

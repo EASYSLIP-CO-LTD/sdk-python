@@ -17,7 +17,7 @@ from email.parser import BytesParser
 
 FIXTURES = Path(os.environ.get("EASYSLIP_FIXTURES_DIR", Path(__file__).parents[1] / "fixtures"))
 CASES = []
-for path in FIXTURES.rglob("*.json"):
+for path in sorted(FIXTURES.rglob("*.json")):
     value = json.loads(path.read_text())
     if isinstance(value, dict) and "response" in value and "expect" in value:
         CASES.append((path.relative_to(FIXTURES).as_posix(), value))
